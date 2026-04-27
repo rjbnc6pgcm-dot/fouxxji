@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的 AI 虛擬手機</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #f0f0f2; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .phone-container {
+            width: 375px; height: 667px;
+            background: white; border: 12px solid #333;
+            border-radius: 40px; position: relative;
+            overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            margin: 20px auto;
+        }
+        .screen { height: 100%; display: flex; flex-direction: column; }
+        .hidden { display: none; }
+        .app-icon {
+            width: 60px; height: 60px; border-radius: 15px;
+            display: flex; items-center; justify-content: center;
+            font-size: 30px; cursor: pointer; transition: transform 0.2s;
+        }
+        .app-icon:active { transform: scale(0.9); }
+    </style>
+</head>
+<body>
+
+<div class="phone-container">
+    <div id="home-screen" class="screen p-6">
+        <div class="flex justify-between items-center mb-10 text-sm font-bold">
+            <span id="current-time">12:00</span>
+            <div class="flex gap-1">📶 🔋</div>
+        </div>
+        
+        <div class="grid grid-cols-4 gap-4">
+            <div onclick="showScreen('chat-screen')" class="flex flex-col items-center">
+                <div class="app-icon bg-green-500 text-white">💬</div>
+                <span class="text-xs mt-1">AI 聊天</span>
+            </div>
+            <div onclick="showScreen('fishing-screen')" class="flex flex-col items-center">
+                <div class="app-icon bg-blue-400 text-white">🎣</div>
+                <span class="text-xs mt-1">釣魚</span>
+            </div>
+            <div onclick="showScreen('settings-screen')" class="flex flex-col items-center">
+                <div class="app-icon bg-gray-400 text-white">⚙️</div>
+                <span class="text-xs mt-1">設定</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="chat-screen" class="screen hidden bg-white">
+        <div class="p-4 bg-gray-100 flex items-center border-b">
+            <button onclick="showScreen('home-screen')" class="text-blue-500 mr-2">◀</button>
+            <span class="font-bold">AI 助手</span>
+        </div>
+        <div id="chat-box" class="flex-1 overflow-y-auto p-4 space-y-3 flex flex-col text-sm">
+            <div class="bg-gray-200 self-start p-2 rounded-lg">你好！我是你的 AI 助手。請先去設定貼上 API Key 喔！</div>
+        </div>
+        <div class="p-2 border-t flex gap-2">
+            <input id="chat-input" type="text" class="flex-1 border rounded-full px-4 py-2 outline-none" placeholder="輸入訊息...">
+            <button onclick="sendToAI()" class="bg-blue-500 text-white px-4 py-2 rounded-full font-bold">發送</button>
+        </div>
+    </div>
+
+    <div id="fishing-screen" class="screen hidden bg-blue-50">
+        <div class="p-4 flex justify-between border-b bg-white">
+            <span class="font-bold">釣魚大師</span>
+            <button onclick="showScreen('home-screen')" class="text-blue-500">離開</button>
+        </div>
+        <div class="flex-1 flex flex-col items-center justify-center p-10">
+            <div id="fish-icon" class="text-6xl mb-10">🌊</div>
+            <button id="fish-btn" onclick="goFishing()" class="bg-blue-600 text-white px-8 py-4 rounded-full font-bold shadow-lg">拋竿！</button>
+            <p id="fish-result" class="mt-6 text-sm text-blue-800 font-bold"></p>
+        </div>
+    </div>
+
+    <div id="settings-screen" class="screen hidden bg-gray-50">
+        <div class="p-4 bg-white border-b flex items-center">
+            <button onclick="showScreen('home-screen')" class="text-blue-500 mr-2">◀</button>
+            <span class="font-bold">手機設定</span>
+        </div>
+        <div class="p-6">
+            <label class="block text-sm font-bold mb-2">Gemini API Key:</label>
+            <input id="api-key-input" type="password" class="w-full border p-2 rounded mb-4" placeholder="在此輸入您的 Key">
+            <button onclick="saveApiKey()" class="w-full bg-black text-white py-2 rounded font-bold">儲存設定</button>
+            <p class="text-xs text-gray-400 mt-4">Key 會存在瀏覽器中，刷新頁面不用重新輸入。</p>
+        </div>
+    </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "@google/generative-ai": "https://esm.run/@google/generative-ai" } }
+</script>
+
+<script type="module">
+    import { GoogleGenerativeAI } from "@google/generative-ai";
+
+    // --- 基礎邏輯 ---
+    window.showScreen = (id) => {
+        document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+    };
+
+    // 更新時間
+    setInterval(() => {
+        const now = new Date();
+        document.getElementById('current-time').innerText = now.getHours() + ":" + String(now.getMinutes()).padStart(2, '0');
+    }, 1000);
+
+    // --- API 邏輯 ---
+    window.saveApiKey = () => {
+        const key = document.getElementById('api-key-input').value;
+        localStorage.setItem('my_phone_api_key', key);
+        alert('API Key 儲存成功！');
+        showScreen('home-screen');
+    };
+
+    window.sendToAI = async () => {
+        const input = document.getElementById('chat-input');
+        const box = document.getElementById('chat-box');
+        const apiKey = localStorage.getItem('my_phone_api_key');
+        
+        if (!apiKey) { alert('請先設定 API Key'); return; }
+        if (!input.value.trim()) return;
+
+        // 顯示我的訊息
+        const myMsg = document.createElement('div');
+        myMsg.className = "bg-blue-500 text-white self-end p-2 rounded-lg max-w-[80%]";
+        myMsg.innerText = input.value;
+        box.appendChild(myMsg);
+
+        const userText = input.value;
+        input.value = '';
+
+        // AI 回覆中...
+        const aiMsg = document.createElement('div');
+        aiMsg.className = "bg-gray-200 self-start p-2 rounded-lg";
+        aiMsg.innerText = "思考中...";
+        box.appendChild(aiMsg);
+
+        try {
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const result = await model.generateContent(userText);
+            aiMsg.innerText = result.response.text();
+        } catch (e) {
+            aiMsg.innerText = "出錯了，請檢查 Key 是否正確。";
+        }
+        box.scrollTop = box.scrollHeight;
+    };
+
+    // --- 釣魚邏輯 ---
+    window.goFishing = () => {
+        const btn = document.getElementById('fish-btn');
+        const result = document.getElementById('fish-result');
+        const icon = document.getElementById('fish-icon');
+        
+        btn.disabled = true;
+        result.innerText = "正在等待魚兒上鉤...";
+        icon.innerText = "🎣";
+
+        setTimeout(() => {
+            const list = ['🐟 吳郭魚', '🐡 河豚', '🦈 大白鯊', '👟 破掉的鞋子', '🥫 鋁罐'];
+            const catchItem = list[Math.floor(Math.random() * list.length)];
+            icon.innerText = catchItem.split(' ')[0];
+            result.innerText = 哇！你釣到了：${catchItem};
+            btn.disabled = false;
+        }, 2000);
+    };
+
+    // 初始化讀取 Key
+    document.getElementById('api-key-input').value = localStorage.getItem('my_phone_api_key') || '';
+</script>
+
+</body>
+</html>
